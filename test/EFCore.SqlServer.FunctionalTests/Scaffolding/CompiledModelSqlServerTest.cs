@@ -197,9 +197,11 @@ public class CompiledModelSqlServerTest : CompiledModelRelationalTestBase
             model.GetEntityTypes());
     }
 
-    protected override void BuildTpcModel(ModelBuilder modelBuilder)
+    protected override bool UseSprocReturnValue => true;
+
+    protected override void BuildTpcSprocsModel(ModelBuilder modelBuilder)
     {
-        base.BuildTpcModel(modelBuilder);
+        base.BuildTpcSprocsModel(modelBuilder);
 
         modelBuilder
             .HasDatabaseMaxSize("20TB")
@@ -222,9 +224,9 @@ public class CompiledModelSqlServerTest : CompiledModelRelationalTestBase
             });
     }
 
-    protected override void AssertTpc(IModel model)
+    protected override void AssertTpcSprocs(IModel model)
     {
-        base.AssertTpc(model);
+        base.AssertTpcSprocs(model);
 
         Assert.Null(model[SqlServerAnnotationNames.MaxDatabaseSize]);
         Assert.Equal(
@@ -322,6 +324,9 @@ public class CompiledModelSqlServerTest : CompiledModelRelationalTestBase
                 "foo"
             },
             detailsProperty.GetAnnotations().Select(a => a.Name));
+
+        var dbFunction = model.FindDbFunction("PrincipalBaseTvf")!;
+        Assert.Equal("dbo", dbFunction.Schema);
 
         Assert.Equal(SqlServerValueGenerationStrategy.None, detailsProperty.GetValueGenerationStrategy());
         Assert.Equal(

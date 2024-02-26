@@ -33,17 +33,18 @@ public abstract class CompiledModelTestBase : NonSharedModelTestBase
                 });
             },
             model => Assert.Single(model.GetEntityTypes()),
-            c =>
-            {
-                c.Add(new DependentDerived<int>(1, "one"));
+            // Blocked by dotnet/runtime/issues/89439
+            //c =>
+            //{
+            //    c.Add(new DependentDerived<int>(1, "one"));
 
-                c.SaveChanges();
+            //    c.SaveChanges();
 
-                var stored = c.Set<DependentDerived<int>>().Single();
-                Assert.Equal(0, stored.Id);
-                Assert.Equal(1, stored.GetId());
-                Assert.Equal("one", stored.GetData());
-            },
+            //    var stored = c.Set<DependentDerived<int>>().Single();
+            //    Assert.Equal(0, stored.Id);
+            //    Assert.Equal(1, stored.GetId());
+            //    Assert.Equal("one", stored.GetData());
+            //},
             options: new CompiledModelCodeGenerationOptions { UseNullableReferenceTypes = true },
             additionalSourceFiles:
             [
@@ -83,26 +84,27 @@ namespace TestNamespace
         => Test(
             modelBuilder => BuildBigModel(modelBuilder, jsonColumns: false),
             model => AssertBigModel(model, jsonColumns: false),
-            c =>
-            {
-                var principalDerived = new PrincipalDerived<DependentBase<byte?>>
-                {
-                    AlternateId = new Guid(),
-                    Dependent = new DependentBase<byte?>(1),
-                    Owned = new OwnedType(c)
-                };
+            // Blocked by dotnet/runtime/issues/89439
+            //c =>
+            //{
+            //    var principalDerived = new PrincipalDerived<DependentBase<byte?>>
+            //    {
+            //        AlternateId = new Guid(),
+            //        Dependent = new DependentBase<byte?>(1),
+            //        Owned = new OwnedType(c)
+            //    };
 
-                var principalBase = c.Model.FindEntityType(typeof(PrincipalBase))!;
-                var principalId = principalBase.FindProperty(nameof(PrincipalBase.Id))!;
-                if (principalId.ValueGenerated == ValueGenerated.Never)
-                {
-                    principalDerived.Id = 10;
-                }
+            //    var principalBase = c.Model.FindEntityType(typeof(PrincipalBase))!;
+            //    var principalId = principalBase.FindProperty(nameof(PrincipalBase.Id))!;
+            //    if (principalId.ValueGenerated == ValueGenerated.Never)
+            //    {
+            //        principalDerived.Id = 10;
+            //    }
 
-                c.Add(principalDerived);
+            //    c.Add(principalDerived);
 
-                c.SaveChanges();
-            },
+            //    c.SaveChanges();
+            //},
             options: new CompiledModelCodeGenerationOptions { UseNullableReferenceTypes = true });
 
     protected virtual void BuildBigModel(ModelBuilder modelBuilder, bool jsonColumns)
@@ -1329,7 +1331,7 @@ namespace TestNamespace
         [CallerMemberName] string testName = "")
         where TContext : DbContext
     {
-        var contextFactory = CreateContextFactory<TContext>(
+        using var context = CreateContextFactory<TContext>(
             modelBuilder =>
             {
                 var model = modelBuilder.Model;
@@ -1338,8 +1340,7 @@ namespace TestNamespace
                 onModelCreating?.Invoke(modelBuilder);
             },
             onConfiguring,
-            addServices);
-        using var context = contextFactory.CreateContext();
+            addServices).CreateContext();
         var model = context.GetService<IDesignTimeModel>().Model;
 
         options ??= new CompiledModelCodeGenerationOptions();
@@ -1387,6 +1388,13 @@ namespace TestNamespace
 
         if (useContext != null)
         {
+            var contextFactory = CreateContextFactory<TContext>(
+                onConfiguring: options =>
+                {
+                    onConfiguring?.Invoke(options);
+                    options.UseModel(compiledModel);
+                },
+                addServices: addServices);
             ListLoggerFactory.Clear();
             TestStore.Initialize(ServiceProvider, contextFactory.CreateContext, c => useContext((TContext)c));
         }
